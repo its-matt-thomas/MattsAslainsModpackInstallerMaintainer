@@ -17,7 +17,7 @@ if ($args -contains "/Uninstall") {
                 Remove-Item $fullPath -Force -ErrorAction Stop
                 Write-Host "Deleted $file"
             } catch {
-                Write-Warning "Failed to delete $file: $_"
+                Write-Warning "Failed to delete $file: $($_.Exception.Message)"
             }
         }
     }
