@@ -204,7 +204,21 @@ if ($ActualHash.ToLower() -ne $ExpectedHash) {
 }
 
 Add-Content -Path $LogPath -Value "[$(Get-Date)] Starting installer..."
-Start-Process -FilePath $TempFile -ArgumentList "/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR=`"$WoWSPath`""
-Start-Sleep -Seconds 5
-Remove-Item $TempFile -Force
-Add-Content -Path $LogPath -Value "[$(Get-Date)] Installer launched and temp file removed."
+
+$proc = Start-Process -FilePath $TempFile `
+    -ArgumentList "/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR=`"$WoWSPath`"" `
+    -PassThru
+
+if ($proc | Wait-Process -Timeout 300) {
+    Add-Content -Path $LogPath -Value "[$(Get-Date)] Installer completed within timeout."
+} else {
+    Add-Content -Path $LogPath -Value "[$(Get-Date)] WARNING: Installer did not finish in time. Attempting to kill..."
+    try { Stop-Process -Id $proc.Id -Force } catch {}
+}
+
+try {
+    Remove-Item $TempFile -Force
+    Add-Content -Path $LogPath -Value "[$(Get-Date)] Temp file removed."
+} catch {
+    Add-Content -Path $LogPath -Value "[$(Get-Date)] Failed to remove temp file: $($_.Exception.Message)"
+}
