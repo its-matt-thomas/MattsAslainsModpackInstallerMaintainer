@@ -70,13 +70,13 @@ powershell.exe -ExecutionPolicy Bypass -File MattsAslainsModpackInstallerMaintai
 ```
 🧹 Uninstallation
 To remove all files and the scheduled task created by this script, run:
-
+```powershell
 powershell.exe MattsAslainsModpackInstallerMaintainer.ps1 /Uninstall
-
+```
 Or to override Execution Policy:
-
+```powershell
 powershell.exe -ExecutionPolicy Bypass -File MattsAslainsModpackInstallerMaintainer.ps1 /Uninstall
-
+```
 ⚖ License
 MIT License • Created by Matt_Thomas
 
