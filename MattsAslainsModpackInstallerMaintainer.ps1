@@ -163,13 +163,16 @@ if (Test-Path $SetupLogPath) {
 }
 
 try {
-    $WebContent = Invoke-WebRequest -Uri $Url -UseBasicParsing
+    $wc = New-Object System.Net.WebClient
+    $wc.DownloadFile($Url, $TempFile)
 } catch {
-    Add-Content -Path $LogPath -Value "[$(Get-Date)] Failed to fetch update page."
+    Add-Content -Path $LogPath -Value "[$(Get-Date)] Failed to download installer (WebClient): $($_.Exception.Message)"
     exit 1
 }
 
-if ($WebContent.Content -match 'href="(https://dl\.aslain\.com/Aslains_WoWs_Modpack_Installer_v\.(\d+\.\d+\.\d+_\d+)\.exe)".*?>main download link<') {
+$WebContent = Get-Content -Raw -Path $TempFile
+
+if ($WebContent -match 'href="(https://dl\.aslain\.com/Aslains_WoWs_Modpack_Installer_v\.(\d+\.\d+\.\d+_\d+)\.exe)".*?>main download link<') {
     $DownloadUrl = $Matches[1]
     $LatestVersion = $Matches[2]
 } else {
@@ -177,7 +180,7 @@ if ($WebContent.Content -match 'href="(https://dl\.aslain\.com/Aslains_WoWs_Modp
     exit 1
 }
 
-if ($WebContent.Content -match 'SHA-256.*?([a-fA-F0-9]{64})') {
+if ($WebContent -match 'SHA-256.*?([a-fA-F0-9]{64})') {
     $ExpectedHash = $Matches[1].ToLower()
 } else {
     Add-Content -Path $LogPath -Value "[$(Get-Date)] Could not find SHA256 hash."
@@ -189,20 +192,6 @@ if ($CurrentVersion -eq $LatestVersion) {
     exit 0
 }
 
-try {
-    Invoke-WebRequest -Uri $DownloadUrl -OutFile $TempFile
-} catch {
-    Add-Content -Path $LogPath -Value "[$(Get-Date)] Failed to download installer."
-    exit 1
-}
-
-$ActualHash = Get-FileHash $TempFile -Algorithm SHA256 | Select-Object -ExpandProperty Hash
-if ($ActualHash.ToLower() -ne $ExpectedHash) {
-    Add-Content -Path $LogPath -Value "[$(Get-Date)] Hash mismatch! Expected $ExpectedHash but got $ActualHash."
-    Remove-Item $TempFile -Force
-    exit 1
-}
-
 Add-Content -Path $LogPath -Value "[$(Get-Date)] Starting installer..."
 
 $proc = Start-Process -FilePath $TempFile `
@@ -212,8 +201,16 @@ $proc = Start-Process -FilePath $TempFile `
 if ($proc | Wait-Process -Timeout 300) {
     Add-Content -Path $LogPath -Value "[$(Get-Date)] Installer completed within timeout."
 } else {
-    Add-Content -Path $LogPath -Value "[$(Get-Date)] WARNING: Installer did not finish in time. Attempting to kill..."
-    try { Stop-Process -Id $proc.Id -Force } catch {}
+    if (Get-Process -Id $proc.Id -ErrorAction SilentlyContinue) {
+        try {
+            Stop-Process -Id $proc.Id -Force
+            Add-Content -Path $LogPath -Value "[$(Get-Date)] Installer forcefully terminated after timeout."
+        } catch {
+            Add-Content -Path $LogPath -Value "[$(Get-Date)] Failed to kill process ID $($proc.Id): $($_.Exception.Message)"
+        }
+    } else {
+        Add-Content -Path $LogPath -Value "[$(Get-Date)] Process ID $($proc.Id) already exited before Stop-Process."
+    }
 }
 
 try {
