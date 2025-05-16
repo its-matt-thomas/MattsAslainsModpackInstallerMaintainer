@@ -101,7 +101,8 @@ objShell.Run ""$psCmd"", 0, False
 
     $taskName = "Matt's 'Aslain's Modpack Installer' Maintainer"
     $cmd = "wscript.exe `"$VbsPath`""
-    $taskCreate = schtasks /Create /F /TN "$taskName" /TR "$cmd" $trigger /RL HIGHEST /RU SYSTEM 2>&1
+    $triggerArgs = $trigger -split ' '
+    $taskCreate = schtasks /Create /F /TN "$taskName" /TR "$cmd" @triggerArgs /RL HIGHEST /RU SYSTEM 2>&1
     if ($LASTEXITCODE -eq 0) {
         Write-Host "Scheduled task created: $taskName to run $($frequencies[$choice].label)"
         $Config.ScheduledTaskCreated = $true
