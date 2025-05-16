@@ -12,11 +12,7 @@ New-Item -ItemType Directory -Path $WorkingDir -Force | Out-Null
 if ($args -contains "/Uninstall") {
     $WoWSPath = $PSScriptRoot
     $taskName = "Matt's 'Aslain's Modpack Installer' Maintainer"
-    $filesToDelete = @(
-        "MattsAslainsModpackInstallerMaintainer.ps1",
-        "MattsInvisibleLauncher.vbs",
-        "wows_config.json"
-    )
+    $filesToDelete = @("MattsAslainsModpackInstallerMaintainer.ps1", "wows_config.json")
 
     foreach ($file in $filesToDelete) {
         $fullPath = Join-Path $WoWSPath $file
@@ -115,19 +111,10 @@ if (-not $TaskAlreadyCreated) {
         exit 1
     }
 
-    $VbsPath = Join-Path $WoWSPath "MattsInvisibleLauncher.vbs"
-    $psCmd = "powershell.exe -ExecutionPolicy Bypass -File `"$ScriptName`""
-    if ($Debug) { $psCmd += " /Debug" }
-    $VbsContent = @"
-Set objShell = CreateObject("Wscript.Shell")
-objShell.Run "$psCmd", 0, False
-"@
-    Set-Content -Path $VbsPath -Value $VbsContent -Encoding ASCII
-
     $taskName = "Matt's 'Aslain's Modpack Installer' Maintainer"
-    $cmd = "wscript.exe `"$VbsPath`""
+    $cmd = "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$TargetPath`""
     $triggerArgs = $trigger -split ' '
-    $taskCreate = schtasks /Create /F /TN "$taskName" /TR "$cmd" @triggerArgs /RL HIGHEST /RU SYSTEM 2>&1
+    $taskCreate = schtasks /Create /F /TN "$taskName" /TR "$cmd" @triggerArgs /RL HIGHEST /RU SYSTEM /NP 2>&1
     if ($LASTEXITCODE -eq 0) {
         Write-Host "Scheduled task created: $taskName to run $($frequencies[$choice].label)"
         $Config.ScheduledTaskCreated = $true
@@ -151,6 +138,7 @@ objShell.Run "$psCmd", 0, False
     exit
 }
 
+# --- Installer Execution ---
 $SetupLogPath = Join-Path $WoWSPath "_Aslains_Installer.log"
 $Url = "https://aslain.com/index.php?/topic/2020-download-%E2%98%85-world-of-warships-%E2%98%85-modpack/"
 $CurrentVersion = ""
@@ -170,7 +158,7 @@ try {
     exit 1
 }
 
-if ($WebContent -match 'href="(https://dl\.aslain\.com/Aslains_WoWs_Modpack_Installer_v\.(\d+\.\d+\.\d+_\d+)\.exe)".*?>main download link<') {
+if ($WebContent -match 'href=\"(https://dl\.aslain\.com/Aslains_WoWs_Modpack_Installer_v\.(\d+\.\d+\.\d+_\d+)\.exe)\".*?>main download link<') {
     $DownloadUrl = $Matches[1]
     $LatestVersion = $Matches[2]
 } else {
