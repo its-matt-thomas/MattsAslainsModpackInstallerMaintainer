@@ -192,7 +192,8 @@ if ($ActualHash.ToLower() -ne $ExpectedHash) {
     exit 1
 }
 
-Start-Process -FilePath $TempFile -ArgumentList "/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR=`"$WoWSPath`"" -Wait
-
+Add-Content -Path $LogPath -Value "[$(Get-Date)] Starting installer..."
+Start-Process -FilePath $TempFile -ArgumentList "/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR=`"$WoWSPath`""
+Start-Sleep -Seconds 5
 Remove-Item $TempFile -Force
-Add-Content -Path $LogPath -Value "[$(Get-Date)] Installed $LatestVersion successfully."
+Add-Content -Path $LogPath -Value "[$(Get-Date)] Installer launched and temp file removed."
