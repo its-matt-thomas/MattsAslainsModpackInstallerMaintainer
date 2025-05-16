@@ -75,8 +75,8 @@ if (-not $TaskAlreadyCreated) {
     }
 
     $frequencies = @{
-        "1" = @{ label = "Hourly"; trigger = "/SC HOURLY /MO 1" }
-        "2" = @{ label = "Every 6 Hours"; trigger = "/SC DAILY /MO 1 /ST 00:00 /RI 6" }
+        "1" = @{ label = "Hourly"; trigger = "/SC MINUTE /MO 60" }
+        "2" = @{ label = "Every 6 Hours"; trigger = "/SC DAILY /MO 1 /ST 00:00 /RI 360" }
         "3" = @{ label = "Daily"; trigger = "/SC DAILY /MO 1 /ST 03:00" }
     }
 
