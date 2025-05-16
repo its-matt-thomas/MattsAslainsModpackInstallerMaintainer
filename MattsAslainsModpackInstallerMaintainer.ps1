@@ -107,7 +107,7 @@ objShell.Run ""$psCmd"", 0, False
         $Config.ScheduledTaskCreated = $true
     } else {
         Write-Warning "Failed to create scheduled task:"
-        Write-Warning $taskCreate
+        Write-Warning ($taskCreate -join "`n")
         Write-Host "The script will still run manually, but scheduled automation will not occur."
         $Config.ScheduledTaskCreated = $false
     }
