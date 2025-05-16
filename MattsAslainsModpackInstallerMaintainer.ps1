@@ -1,5 +1,13 @@
 Add-Type -AssemblyName System.Windows.Forms
 
+$WorkingDir = "C:\ProgramData\MattsMaintainer"
+$LogPath    = Join-Path $WorkingDir "MattsAslainsModpackInstallerMaintainer.log"
+$DebugLog   = Join-Path $WorkingDir "MattsMaintainer_Debug.log"
+$TempFile   = Join-Path $WorkingDir "Aslains_Modpack_Setup.exe"
+
+New-Item -ItemType Directory -Path $WorkingDir -Force | Out-Null
+"[$(Get-Date)] Script started under $env:USERNAME ($env:COMPUTERNAME)" | Out-File -FilePath $DebugLog -Encoding UTF8 -Append
+
 # === HANDLE /Uninstall ===
 if ($args -contains "/Uninstall") {
     $WoWSPath = $PSScriptRoot
@@ -7,9 +15,9 @@ if ($args -contains "/Uninstall") {
     $filesToDelete = @(
         "MattsAslainsModpackInstallerMaintainer.ps1",
         "MattsInvisibleLauncher.vbs",
-        "MattsAslainsModpackInstallerMaintainer.log",
         "wows_config.json"
     )
+
     foreach ($file in $filesToDelete) {
         $fullPath = Join-Path $WoWSPath $file
         if (Test-Path $fullPath) {
@@ -29,6 +37,16 @@ if ($args -contains "/Uninstall") {
         Write-Warning "Could not delete scheduled task: $_"
     }
 
+    if (Test-Path $WorkingDir) {
+        try {
+            Remove-Item "$WorkingDir\*" -Force -ErrorAction Stop
+            Remove-Item $WorkingDir -Force
+            Write-Host "Removed $WorkingDir and all contents."
+        } catch {
+            Write-Warning "Failed to clean up $WorkingDir: $_"
+        }
+    }
+
     exit
 }
 
@@ -42,13 +60,12 @@ function Select-Folder($description) {
     return $null
 }
 
-# === INITIAL SETUP ===
 $ScriptName = "MattsAslainsModpackInstallerMaintainer.ps1"
 $Config = @{}
 $WoWSPath = $null
 $TaskAlreadyCreated = $false
-
 $TempConfigPath = Join-Path $PSScriptRoot "wows_config.json"
+
 if (Test-Path $TempConfigPath) {
     $Config = Get-Content $TempConfigPath | ConvertFrom-Json
     $WoWSPath = $Config.wows_path
@@ -67,7 +84,6 @@ if (-not $WoWSPath) {
 $ConfigPath = Join-Path $WoWSPath "wows_config.json"
 $TargetPath = Join-Path $WoWSPath $ScriptName
 
-# === FIRST RUN ===
 if (-not $TaskAlreadyCreated) {
     if ($MyInvocation.MyCommand.Path -ne $TargetPath) {
         Copy-Item -Path $MyInvocation.MyCommand.Path -Destination $TargetPath -Force
@@ -124,13 +140,10 @@ objShell.Run ""$psCmd"", 0, False
     exit
 }
 
-# === REGULAR UPDATE RUN ===
-$LogPath = Join-Path $WoWSPath "MattsAslainsModpackInstallerMaintainer.log"
 $SetupLogPath = Join-Path $WoWSPath "_Aslains_Installer.log"
-$TempFile = Join-Path $env:TEMP "Aslains_Modpack_Setup.exe"
 $Url = "https://aslain.com/index.php?/topic/2020-download-%E2%98%85-world-of-warships-%E2%98%85-modpack/"
-
 $CurrentVersion = ""
+
 if (Test-Path $SetupLogPath) {
     $line = Get-Content $SetupLogPath -First 10 | Where-Object { $_ -like "*Original Setup EXE*" }
     if ($line -match "Aslains_WoWs_Modpack_Installer_v\.(\d+\.\d+\.\d+_\d+)\.exe") {
