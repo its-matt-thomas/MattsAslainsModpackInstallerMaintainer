@@ -1,6 +1,6 @@
 Add-Type -AssemblyName System.Windows.Forms
 
-# Handle /Uninstall
+# === HANDLE /Uninstall ===
 if ($args -contains "/Uninstall") {
     $WoWSPath = $PSScriptRoot
     $taskName = "Matt's 'Aslain's Modpack Installer' Maintainer"
@@ -17,12 +17,11 @@ if ($args -contains "/Uninstall") {
                 Remove-Item $fullPath -Force -ErrorAction Stop
                 Write-Host "Deleted $file"
             } catch {
-                Write-Warning "Failed to delete $file: $($_.Exception.Message)"
+                Write-Warning ("Failed to delete {0}: {1}" -f $file, $_.Exception.Message)
             }
         }
     }
 
-    # Delete scheduled task
     try {
         schtasks /Delete /F /TN "$taskName" | Out-Null
         Write-Host "Scheduled task '$taskName' removed."
@@ -43,21 +42,21 @@ function Select-Folder($description) {
     return $null
 }
 
-# === CONFIG SETUP ===
+# === INITIAL SETUP ===
 $ScriptName = "MattsAslainsModpackInstallerMaintainer.ps1"
-$ConfigPath = Join-Path $WoWSPath "wows_config.json"
 $Config = @{}
+$WoWSPath = $null
+$TaskAlreadyCreated = $false
 
-if (Test-Path $ConfigPath) {
-    $Config = Get-Content $ConfigPath | ConvertFrom-Json
+# Load temp config (only exists during first run)
+$TempConfigPath = Join-Path $PSScriptRoot "wows_config.json"
+if (Test-Path $TempConfigPath) {
+    $Config = Get-Content $TempConfigPath | ConvertFrom-Json
     $WoWSPath = $Config.wows_path
     $TaskAlreadyCreated = $Config.ScheduledTaskCreated -eq $true
-} else {
-    $WoWSPath = $null
-    $TaskAlreadyCreated = $false
 }
 
-# === FIRST TIME SETUP ===
+# Prompt for WoWS install path
 if (-not $WoWSPath) {
     $WoWSPath = Select-Folder "Select your World of Warships installation folder"
     if (-not $WoWSPath) {
@@ -67,16 +66,19 @@ if (-not $WoWSPath) {
     $Config.wows_path = $WoWSPath
 }
 
+# Config always lives in game directory
+$ConfigPath = Join-Path $WoWSPath "wows_config.json"
 $TargetPath = Join-Path $WoWSPath $ScriptName
 
+# === FIRST RUN ===
 if (-not $TaskAlreadyCreated) {
-    # Copy self to WoWS folder if not already there
+    # Move script into game directory
     if ($MyInvocation.MyCommand.Path -ne $TargetPath) {
         Copy-Item -Path $MyInvocation.MyCommand.Path -Destination $TargetPath -Force
         Write-Host "Script copied to game directory: $TargetPath"
     }
 
-    # Prompt for schedule
+    # Ask user for update frequency
     $frequencies = @{
         "1" = @{ label = "Hourly"; trigger = "/SC HOURLY" }
         "2" = @{ label = "Every 6 Hours"; trigger = "/SC DAILY /RI 1 /MO 1 /ST 00:00 /DU 06:00" }
@@ -94,7 +96,7 @@ if (-not $TaskAlreadyCreated) {
         exit 1
     }
 
-    # Create invisible VBS launcher
+    # Create .vbs launcher for invisible execution
     $VbsPath = Join-Path $WoWSPath "MattsInvisibleLauncher.vbs"
     $psCmd = "powershell.exe -ExecutionPolicy Bypass -File `"$ScriptName`""
     $VbsContent = @"
@@ -103,30 +105,35 @@ objShell.Run ""$psCmd"", 0, False
 "@
     Set-Content -Path $VbsPath -Value $VbsContent -Encoding ASCII
 
-    # Register scheduled task
+    # Create scheduled task
     $taskName = "Matt's 'Aslain's Modpack Installer' Maintainer"
     $cmd = "wscript.exe `"$VbsPath`""
     schtasks /Create /F /TN "$taskName" /TR "$cmd" $trigger /RL HIGHEST /RU SYSTEM | Out-Null
 
     Write-Host "Scheduled task created: $taskName to run $($frequencies[$choice].label)"
 
-    # Update config and save
+    # Save config
     $Config.ScheduledTaskCreated = $true
     $Config | ConvertTo-Json | Set-Content $ConfigPath
 
-    # Self-delete after first run
+    # Clean up stray config if run from Downloads/Desktop
+    if ($TempConfigPath -ne $ConfigPath -and (Test-Path $TempConfigPath)) {
+        Remove-Item $TempConfigPath -Force
+    }
+
+    # Self-delete original script
     Start-Sleep -Seconds 1
     Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force
     exit
 }
 
-# === REGULAR RUN ===
+# === SILENT UPDATE MODE ===
 $LogPath = Join-Path $WoWSPath "MattsAslainsModpackInstallerMaintainer.log"
 $SetupLogPath = Join-Path $WoWSPath "_Aslains_Installer.log"
 $TempFile = Join-Path $env:TEMP "Aslains_Modpack_Setup.exe"
 $Url = "https://aslain.com/index.php?/topic/2020-download-%E2%98%85-world-of-warships-%E2%98%85-modpack/"
 
-# Detect current version from original log
+# Get currently installed version
 $CurrentVersion = ""
 if (Test-Path $SetupLogPath) {
     $line = Get-Content $SetupLogPath -First 10 | Where-Object { $_ -like "*Original Setup EXE*" }
@@ -135,7 +142,7 @@ if (Test-Path $SetupLogPath) {
     }
 }
 
-# Download update page
+# Fetch webpage
 try {
     $WebContent = Invoke-WebRequest -Uri $Url -UseBasicParsing
 } catch {
@@ -143,7 +150,7 @@ try {
     exit 1
 }
 
-# Parse latest version and download URL
+# Parse download link and version
 if ($WebContent.Content -match 'href="(https://dl\.aslain\.com/Aslains_WoWs_Modpack_Installer_v\.(\d+\.\d+\.\d+_\d+)\.exe)".*?>main download link<') {
     $DownloadUrl = $Matches[1]
     $LatestVersion = $Matches[2]
@@ -152,7 +159,7 @@ if ($WebContent.Content -match 'href="(https://dl\.aslain\.com/Aslains_WoWs_Modp
     exit 1
 }
 
-# Get SHA-256 hash
+# Parse SHA256
 if ($WebContent.Content -match 'SHA-256.*?([a-fA-F0-9]{64})') {
     $ExpectedHash = $Matches[1].ToLower()
 } else {
@@ -160,12 +167,12 @@ if ($WebContent.Content -match 'SHA-256.*?([a-fA-F0-9]{64})') {
     exit 1
 }
 
-# Skip if already installed
+# Already up to date?
 if ($CurrentVersion -eq $LatestVersion) {
     exit 0
 }
 
-# Download new installer
+# Download installer
 try {
     Invoke-WebRequest -Uri $DownloadUrl -OutFile $TempFile
 } catch {
@@ -176,12 +183,12 @@ try {
 # Verify hash
 $ActualHash = Get-FileHash $TempFile -Algorithm SHA256 | Select-Object -ExpandProperty Hash
 if ($ActualHash.ToLower() -ne $ExpectedHash) {
-    Add-Content -Path $LogPath -Value "[$(Get-Date)] Hash mismatch! Aborting install."
+    Add-Content -Path $LogPath -Value "[$(Get-Date)] Hash mismatch! Expected $ExpectedHash but got $ActualHash."
     Remove-Item $TempFile -Force
     exit 1
 }
 
-# Run installer silently
+# Run silent installer
 Start-Process -FilePath $TempFile -ArgumentList "/SP- /VERYSILENT /NORESTART /DIR=`"$WoWSPath`"" -Wait
 
 # Cleanup
