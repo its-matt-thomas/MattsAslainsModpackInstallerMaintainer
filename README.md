@@ -1,15 +1,28 @@
 # MattsAslainsModpackInstallerMaintainer
 
-A tool to automatically check for and silently install updates to Aslain’s World of Warships Modpack.
+A PowerShell utility that checks Aslain's World of Warships modpack page for updates and silently installs new versions when available.
+
+## Features
+
+- Monitors [Aslain's Modpack](https://aslain.com/index.php?/topic/2020-download-%E2%98%85-world-of-warships-%E2%98%85-modpack/)
+- Parses latest version and official SHA256 hash
+- Compares against installed version (via `_Aslains_Installer.log`)
+- Automatically downloads, verifies hash, and installs silently
+- Scheduled task runs under `SYSTEM`, no user login required
+- Logs actions to:  
+  - `C:\ProgramData\MattsMaintainer\MattsAslainsModpackInstallerMaintainer.log`  
+  - `C:\ProgramData\MattsMaintainer\MattsMaintainer_Debug.log`
 
 ---
 
-## 🚀 How It Works
+## First-Time Setup
 
-After installing Aslain’s Modpack manually, run this tool once. On first run, it will:
+After installing Aslain’s Modpack manually:
 
-1. Prompt you to select your `World_of_Warships` directory.
-2. Ask how frequently to check for updates:
+1. Run `PS_Execution_Bypass.bat`
+2. Select your World of Warships game folder
+3. Choose how often to check for updates:
+
    ```
    Select how often the updater should check for updates:
    1) Hourly
@@ -17,17 +30,45 @@ After installing Aslain’s Modpack manually, run this tool once. On first run, 
    3) Daily
    Enter 1, 2, or 3:
    ```
-3. Create a scheduled task named:
+4. A scheduled task will be created to re-run the script silently using `powershell.exe`
 
-   ```
-   Matt's 'Aslain's Modpack Installer' Maintainer
-   ```
-
-   This task runs invisibly as SYSTEM on your chosen schedule.
-4. Save your game path and schedule config to `wows_config.json` in the game folder.
-5. Move itself into the game folder and delete the original copy.
+The script self-destructs from your Downloads folder and copies itself to your game directory.  
+A `wows_config.json` file is generated to remember your choices.
 
 ---
+
+## Files Created
+
+- Game directory:
+- `MattsAslainsModpackInstallerMaintainer.ps1`
+- `wows_config.json`
+- System folder:
+- `C:\ProgramData\MattsMaintainer\...` (temp files, logs)
+- Scheduled Task:
+- **Matt's 'Aslain's Modpack Installer' Maintainer**
+
+---
+
+## Manual Execution
+
+You can run the script manually at any time:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File "MattsAslainsModpackInstallerMaintainer.ps1"
+```
+Optional Arguments
+Argument	Function
+`/Uninstall`	Removes all created files and the task
+`/Reset`	Deletes wows_config.json and re-prompts
+`/Debug`	Enables extra logging and disables cleanup
+
+Example Output
+Sample log in MattsAslainsModpackInstallerMaintainer.log:
+```
+[05/16/2025 10:32:42] Installer exited with code: 0
+[05/16/2025 10:32:42] Temp file removed.
+[05/16/2025 10:32:42] Update complete: 14.4.0_01 -> 14.4.0_02
+```
 
 ## 🔄 Auto-Update Behavior
 
@@ -38,28 +79,33 @@ Once configured:
   - It downloads the installer
   - Verifies the SHA-256 checksum
   - Installs silently using your previous configuration
-- Logs are saved to `MattsAslainsModpackInstallerMaintainer.log` in the game folder.
-
----
+- Logs are saved to:  
+  - `C:\ProgramData\MattsMaintainer\MattsAslainsModpackInstallerMaintainer.log`  
+  - `C:\ProgramData\MattsMaintainer\MattsMaintainer_Debug.log`
 
 ## ⏱ Update Frequency Options
 
-| Option | Schedule                            |
-|--------|-------------------------------------|
+| Option | Schedule                               |
+|--------|----------------------------------------|
 | 1      | Every 60 minutes (`/SC MINUTE /MO 60`) |
 | 2      | Every 6 hours from midnight (`/RI 360`) |
-| 3      | Once daily at 03:00 AM              |
+| 3      | Once daily at 03:00 AM                 |
 
----
+## 📁 Files Created
 
-## 📁 Files Created in the Game Directory
+**In your game folder:**
+- `MattsAslainsModpackInstallerMaintainer.ps1` – Self-copied on first run; executes update logic
+- `wows_config.json` – Stores WoWS path and schedule configuration
 
-- `MattsAslainsModpackInstallerMaintainer.ps1` – Self-copied here on first run; executes update logic  
-- `MattsInvisibleLauncher.vbs` – Auto-generated; used by Task Scheduler to run invisibly  
-- `wows_config.json` – Stores WoWS path and schedule config  
-- `MattsAslainsModpackInstallerMaintainer.log` – Logs all update actions, hash verifications, and errors  
+**In system config:**
+- `C:\ProgramData\MattsMaintainer\Aslains_Modpack_Setup.exe` – Temporary downloaded installer
+- `C:\ProgramData\MattsMaintainer\MattsAslainsModpackInstallerMaintainer.log` – Main update log
+- `C:\ProgramData\MattsMaintainer\MattsMaintainer_Debug.log` – Script debug log
 
----
+**Scheduled Task:**
+- `Matt's 'Aslain's Modpack Installer' Maintainer` – Runs silently as SYSTEM
+
+
 
 ## 🛠 Manual Execution
 
@@ -68,30 +114,10 @@ To run the updater manually from the game directory:
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File MattsAslainsModpackInstallerMaintainer.ps1
 ```
-
-Or via the included batch file:
-
-```bat
-@echo off
-powershell.exe -ExecutionPolicy Bypass -File MattsAslainsModpackInstallerMaintainer.ps1
-```
-
----
-
-To **uninstall the updater** and remove its scheduled task:
-
+To uninstall the updater and remove all files and the scheduled task:
 ```powershell
 powershell.exe -File MattsAslainsModpackInstallerMaintainer.ps1 /Uninstall
 ```
 
-This removes:
-- The script
-- The `.vbs` launcher
-- The config and log files
-- The scheduled task
-
----
-
-## 📄 License
-
-MIT License – Created by Matt_Thomas
+License
+MIT, but use at your own risk. This script is unaffiliated with Aslain.
