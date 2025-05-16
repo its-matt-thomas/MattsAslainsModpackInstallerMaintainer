@@ -48,7 +48,6 @@ $Config = @{}
 $WoWSPath = $null
 $TaskAlreadyCreated = $false
 
-# Load temp config (first-run)
 $TempConfigPath = Join-Path $PSScriptRoot "wows_config.json"
 if (Test-Path $TempConfigPath) {
     $Config = Get-Content $TempConfigPath | ConvertFrom-Json
@@ -56,7 +55,6 @@ if (Test-Path $TempConfigPath) {
     $TaskAlreadyCreated = $Config.ScheduledTaskCreated -eq $true
 }
 
-# Prompt for WoWS install path
 if (-not $WoWSPath) {
     $WoWSPath = Select-Folder "Select your World of Warships installation folder"
     if (-not $WoWSPath) {
@@ -66,7 +64,6 @@ if (-not $WoWSPath) {
     $Config.wows_path = $WoWSPath
 }
 
-# Final config destination
 $ConfigPath = Join-Path $WoWSPath "wows_config.json"
 $TargetPath = Join-Path $WoWSPath $ScriptName
 
@@ -78,9 +75,9 @@ if (-not $TaskAlreadyCreated) {
     }
 
     $frequencies = @{
-        "1" = @{ label = "Hourly"; trigger = "/SC HOURLY /ST 00:00" }
-        "2" = @{ label = "Every 6 Hours"; trigger = "/SC DAILY /ST 00:00 /RI 6" }
-        "3" = @{ label = "Daily"; trigger = "/SC DAILY /ST 03:00" }
+        "1" = @{ label = "Hourly"; trigger = "/SC HOURLY /MO 1 /ST 00:00" }
+        "2" = @{ label = "Every 6 Hours"; trigger = "/SC DAILY /MO 1 /ST 00:00 /RI 6" }
+        "3" = @{ label = "Daily"; trigger = "/SC DAILY /MO 1 /ST 03:00" }
     }
 
     Write-Host "`nSelect how often the updater should check for updates:"
@@ -104,11 +101,17 @@ objShell.Run ""$psCmd"", 0, False
 
     $taskName = "Matt's 'Aslain's Modpack Installer' Maintainer"
     $cmd = "wscript.exe `"$VbsPath`""
-    schtasks /Create /F /TN "$taskName" /TR "$cmd" $trigger /RL HIGHEST /RU SYSTEM | Out-Null
+    $taskCreate = schtasks /Create /F /TN "$taskName" /TR "$cmd" $trigger /RL HIGHEST /RU SYSTEM 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Scheduled task created: $taskName to run $($frequencies[$choice].label)"
+        $Config.ScheduledTaskCreated = $true
+    } else {
+        Write-Warning "Failed to create scheduled task:"
+        Write-Warning $taskCreate
+        Write-Host "The script will still run manually, but scheduled automation will not occur."
+        $Config.ScheduledTaskCreated = $false
+    }
 
-    Write-Host "Scheduled task created: $taskName to run $($frequencies[$choice].label)"
-
-    $Config.ScheduledTaskCreated = $true
     $Config | ConvertTo-Json | Set-Content $ConfigPath
 
     if ($TempConfigPath -ne $ConfigPath -and (Test-Path $TempConfigPath)) {
@@ -120,7 +123,7 @@ objShell.Run ""$psCmd"", 0, False
     exit
 }
 
-# === SILENT UPDATE MODE ===
+# === REGULAR UPDATE RUN ===
 $LogPath = Join-Path $WoWSPath "MattsAslainsModpackInstallerMaintainer.log"
 $SetupLogPath = Join-Path $WoWSPath "_Aslains_Installer.log"
 $TempFile = Join-Path $env:TEMP "Aslains_Modpack_Setup.exe"
