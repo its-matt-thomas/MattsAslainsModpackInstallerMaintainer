@@ -1,36 +1,31 @@
 # MattsAslainsModpackInstallerMaintainer
 
-A PowerShell tool to programmatically check for and install updates to Aslain's World of Warships Modpack.
+A tool to automatically check for and silently install updates to Aslain’s World of Warships Modpack.
 
 ---
 
-## 📦 Overview
+## 🚀 How It Works
 
-After manually installing Aslain's Modpack once, run this script to automate future updates.
+After installing Aslain’s Modpack manually, run this tool once. On first run, it will:
 
-It will silently check for new versions and install them using your existing modpack configuration.
+1. Prompt you to select your `World_of_Warships` directory.
+2. Ask how frequently to check for updates:
+   ```
+   Select how often the updater should check for updates:
+   1) Hourly
+   2) Every 6 Hours
+   3) Daily
+   Enter 1, 2, or 3:
+   ```
+3. Create a scheduled task named:
 
----
+   ```
+   Matt's 'Aslain's Modpack Installer' Maintainer
+   ```
 
-## 🚀 First Run Setup
-
-On first execution, the script will:
-
-1. Prompt you to select your **World of Warships installation folder**.
-2. Ask how often you want to check for updates:
-
-Select how often the updater should check for updates:
-1. Hourly
-2. Every 6 Hours
-3. Daily
-Enter 1, 2, or 3:
-
-3. Create a **scheduled task** named  
-`Matt's 'Aslain's Modpack Installer' Maintainer`  
-which runs invisibly and re-executes the script at the chosen interval.
-
-4. Save your game path and task setup info to `wows_config.json` in the game folder.
-5. Move itself into the game folder and **self-delete** from its original location.
+   This task runs invisibly as SYSTEM on your chosen schedule.
+4. Save your game path and schedule config to `wows_config.json` in the game folder.
+5. Move itself into the game folder and delete the original copy.
 
 ---
 
@@ -38,46 +33,65 @@ which runs invisibly and re-executes the script at the chosen interval.
 
 Once configured:
 
-- The script checks the [Aslain Modpack page](https://aslain.com/index.php?/topic/2020-download-%E2%98%85-world-of-warships-%E2%98%85-modpack/) for a new version.
-- If an update is available:
-- Downloads the installer
-- Verifies the SHA-256 checksum
-- Installs silently using your previous configuration
-- Logs are written to `MattsAslainsModpackInstallerMaintainer.log` in the game folder.
+- The script checks the [Aslain Modpack page](https://aslain.com/index.php?/topic/2020-download-%E2%98%85-world-of-warships-%E2%98%85-modpack/) for updates.
+- If a new version is available:
+  - It downloads the installer
+  - Verifies the SHA-256 checksum
+  - Installs silently using your previous configuration
+- Logs are saved to `MattsAslainsModpackInstallerMaintainer.log` in the game folder.
+
+---
+
+## ⏱ Update Frequency Options
+
+| Option | Schedule                            |
+|--------|-------------------------------------|
+| 1      | Every 60 minutes (`/SC MINUTE /MO 60`) |
+| 2      | Every 6 hours from midnight (`/RI 360`) |
+| 3      | Once daily at 03:00 AM              |
 
 ---
 
 ## 📁 Files Created in the Game Directory
 
-- `MattsAslainsModpackInstallerMaintainer.ps1` – The main script  
-- `MattsInvisibleLauncher.vbs` – Runs the script invisibly via Task Scheduler  
-- `wows_config.json` – Stores path and task config  
-- `MattsAslainsModpackInstallerMaintainer.log` – Logs update activity  
+- `MattsAslainsModpackInstallerMaintainer.ps1` – Self-copied here on first run; executes update logic  
+- `MattsInvisibleLauncher.vbs` – Auto-generated; used by Task Scheduler to run invisibly  
+- `wows_config.json` – Stores WoWS path and schedule config  
+- `MattsAslainsModpackInstallerMaintainer.log` – Logs all update actions, hash verifications, and errors  
 
 ---
 
-## 🧪 Manual Execution
+## 🛠 Manual Execution
 
-To run manually:
+To run the updater manually from the game directory:
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File MattsAslainsModpackInstallerMaintainer.ps1
 ```
-Or via batch file:
-```batch
+
+Or via the included batch file:
+
+```bat
 @echo off
 powershell.exe -ExecutionPolicy Bypass -File MattsAslainsModpackInstallerMaintainer.ps1
 ```
-🧹 Uninstallation
-To remove all files and the scheduled task created by this script, run:
-```powershell
-powershell.exe MattsAslainsModpackInstallerMaintainer.ps1 /Uninstall
-```
-Or to override Execution Policy:
-```powershell
-powershell.exe -ExecutionPolicy Bypass -File MattsAslainsModpackInstallerMaintainer.ps1 /Uninstall
-```
-⚖ License
-MIT License • Created by Matt_Thomas
 
 ---
+
+To **uninstall the updater** and remove its scheduled task:
+
+```powershell
+powershell.exe -File MattsAslainsModpackInstallerMaintainer.ps1 /Uninstall
+```
+
+This removes:
+- The script
+- The `.vbs` launcher
+- The config and log files
+- The scheduled task
+
+---
+
+## 📄 License
+
+MIT License – Created by Matt_Thomas
