@@ -48,7 +48,7 @@ $Config = @{}
 $WoWSPath = $null
 $TaskAlreadyCreated = $false
 
-# Load temp config (only exists during first run)
+# Load temp config (first-run)
 $TempConfigPath = Join-Path $PSScriptRoot "wows_config.json"
 if (Test-Path $TempConfigPath) {
     $Config = Get-Content $TempConfigPath | ConvertFrom-Json
@@ -66,23 +66,21 @@ if (-not $WoWSPath) {
     $Config.wows_path = $WoWSPath
 }
 
-# Config always lives in game directory
+# Final config destination
 $ConfigPath = Join-Path $WoWSPath "wows_config.json"
 $TargetPath = Join-Path $WoWSPath $ScriptName
 
 # === FIRST RUN ===
 if (-not $TaskAlreadyCreated) {
-    # Move script into game directory
     if ($MyInvocation.MyCommand.Path -ne $TargetPath) {
         Copy-Item -Path $MyInvocation.MyCommand.Path -Destination $TargetPath -Force
         Write-Host "Script copied to game directory: $TargetPath"
     }
 
-    # Ask user for update frequency
     $frequencies = @{
-        "1" = @{ label = "Hourly"; trigger = "/SC HOURLY" }
-        "2" = @{ label = "Every 6 Hours"; trigger = "/SC DAILY /RI 1 /MO 1 /ST 00:00 /DU 06:00" }
-        "3" = @{ label = "Daily"; trigger = "/SC DAILY" }
+        "1" = @{ label = "Hourly"; trigger = "/SC HOURLY /ST 00:00" }
+        "2" = @{ label = "Every 6 Hours"; trigger = "/SC DAILY /ST 00:00 /RI 6" }
+        "3" = @{ label = "Daily"; trigger = "/SC DAILY /ST 03:00" }
     }
 
     Write-Host "`nSelect how often the updater should check for updates:"
@@ -96,7 +94,6 @@ if (-not $TaskAlreadyCreated) {
         exit 1
     }
 
-    # Create .vbs launcher for invisible execution
     $VbsPath = Join-Path $WoWSPath "MattsInvisibleLauncher.vbs"
     $psCmd = "powershell.exe -ExecutionPolicy Bypass -File `"$ScriptName`""
     $VbsContent = @"
@@ -105,23 +102,19 @@ objShell.Run ""$psCmd"", 0, False
 "@
     Set-Content -Path $VbsPath -Value $VbsContent -Encoding ASCII
 
-    # Create scheduled task
     $taskName = "Matt's 'Aslain's Modpack Installer' Maintainer"
     $cmd = "wscript.exe `"$VbsPath`""
     schtasks /Create /F /TN "$taskName" /TR "$cmd" $trigger /RL HIGHEST /RU SYSTEM | Out-Null
 
     Write-Host "Scheduled task created: $taskName to run $($frequencies[$choice].label)"
 
-    # Save config
     $Config.ScheduledTaskCreated = $true
     $Config | ConvertTo-Json | Set-Content $ConfigPath
 
-    # Clean up stray config if run from Downloads/Desktop
     if ($TempConfigPath -ne $ConfigPath -and (Test-Path $TempConfigPath)) {
         Remove-Item $TempConfigPath -Force
     }
 
-    # Self-delete original script
     Start-Sleep -Seconds 1
     Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force
     exit
@@ -133,7 +126,6 @@ $SetupLogPath = Join-Path $WoWSPath "_Aslains_Installer.log"
 $TempFile = Join-Path $env:TEMP "Aslains_Modpack_Setup.exe"
 $Url = "https://aslain.com/index.php?/topic/2020-download-%E2%98%85-world-of-warships-%E2%98%85-modpack/"
 
-# Get currently installed version
 $CurrentVersion = ""
 if (Test-Path $SetupLogPath) {
     $line = Get-Content $SetupLogPath -First 10 | Where-Object { $_ -like "*Original Setup EXE*" }
@@ -142,7 +134,6 @@ if (Test-Path $SetupLogPath) {
     }
 }
 
-# Fetch webpage
 try {
     $WebContent = Invoke-WebRequest -Uri $Url -UseBasicParsing
 } catch {
@@ -150,7 +141,6 @@ try {
     exit 1
 }
 
-# Parse download link and version
 if ($WebContent.Content -match 'href="(https://dl\.aslain\.com/Aslains_WoWs_Modpack_Installer_v\.(\d+\.\d+\.\d+_\d+)\.exe)".*?>main download link<') {
     $DownloadUrl = $Matches[1]
     $LatestVersion = $Matches[2]
@@ -159,7 +149,6 @@ if ($WebContent.Content -match 'href="(https://dl\.aslain\.com/Aslains_WoWs_Modp
     exit 1
 }
 
-# Parse SHA256
 if ($WebContent.Content -match 'SHA-256.*?([a-fA-F0-9]{64})') {
     $ExpectedHash = $Matches[1].ToLower()
 } else {
@@ -167,12 +156,11 @@ if ($WebContent.Content -match 'SHA-256.*?([a-fA-F0-9]{64})') {
     exit 1
 }
 
-# Already up to date?
 if ($CurrentVersion -eq $LatestVersion) {
+    Add-Content -Path $LogPath -Value "[$(Get-Date)] Already up to date ($CurrentVersion)"
     exit 0
 }
 
-# Download installer
 try {
     Invoke-WebRequest -Uri $DownloadUrl -OutFile $TempFile
 } catch {
@@ -180,7 +168,6 @@ try {
     exit 1
 }
 
-# Verify hash
 $ActualHash = Get-FileHash $TempFile -Algorithm SHA256 | Select-Object -ExpandProperty Hash
 if ($ActualHash.ToLower() -ne $ExpectedHash) {
     Add-Content -Path $LogPath -Value "[$(Get-Date)] Hash mismatch! Expected $ExpectedHash but got $ActualHash."
@@ -188,9 +175,7 @@ if ($ActualHash.ToLower() -ne $ExpectedHash) {
     exit 1
 }
 
-# Run silent installer
-Start-Process -FilePath $TempFile -ArgumentList "/SP- /VERYSILENT /NORESTART /DIR=`"$WoWSPath`"" -Wait
+Start-Process -FilePath $TempFile -ArgumentList "/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR=`"$WoWSPath`"" -Wait
 
-# Cleanup
 Remove-Item $TempFile -Force
 Add-Content -Path $LogPath -Value "[$(Get-Date)] Installed $LatestVersion successfully."
