@@ -164,13 +164,11 @@ if (Test-Path $SetupLogPath) {
 
 try {
     $wc = New-Object System.Net.WebClient
-    $wc.DownloadFile($Url, $TempFile)
+    $WebContent = $wc.DownloadString($Url)
 } catch {
-    Add-Content -Path $LogPath -Value "[$(Get-Date)] Failed to download installer (WebClient): $($_.Exception.Message)"
+    Add-Content -Path $LogPath -Value "[$(Get-Date)] Failed to fetch update page (WebClient): $($_.Exception.Message)"
     exit 1
 }
-
-$WebContent = Get-Content -Raw -Path $TempFile
 
 if ($WebContent -match 'href="(https://dl\.aslain\.com/Aslains_WoWs_Modpack_Installer_v\.(\d+\.\d+\.\d+_\d+)\.exe)".*?>main download link<') {
     $DownloadUrl = $Matches[1]
@@ -192,11 +190,37 @@ if ($CurrentVersion -eq $LatestVersion) {
     exit 0
 }
 
+try {
+    $wc.DownloadFile($DownloadUrl, $TempFile)
+} catch {
+    Add-Content -Path $LogPath -Value "[$(Get-Date)] Failed to download installer (WebClient): $($_.Exception.Message)"
+    exit 1
+}
+
+$ActualHash = Get-FileHash $TempFile -Algorithm SHA256 | Select-Object -ExpandProperty Hash
+if ($ActualHash.ToLower() -ne $ExpectedHash) {
+    Add-Content -Path $LogPath -Value "[$(Get-Date)] Hash mismatch! Expected $ExpectedHash but got $ActualHash."
+    Remove-Item $TempFile -Force
+    exit 1
+}
+
 Add-Content -Path $LogPath -Value "[$(Get-Date)] Starting installer..."
 
-$proc = Start-Process -FilePath $TempFile `
-    -ArgumentList "/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR=`"$WoWSPath`"" `
-    -PassThru
+try {
+    $proc = Start-Process -FilePath $TempFile `
+        -ArgumentList "/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR=`"$WoWSPath`"" `
+        -PassThru
+} catch {
+    Add-Content -Path $LogPath -Value "[$(Get-Date)] Failed to start installer: $($_.Exception.Message)"
+    Remove-Item $TempFile -Force
+    exit 1
+}
+
+if ($null -eq $proc) {
+    Add-Content -Path $LogPath -Value "[$(Get-Date)] Start-Process did not return a process object."
+    Remove-Item $TempFile -Force
+    exit 1
+}
 
 if ($proc | Wait-Process -Timeout 300) {
     Add-Content -Path $LogPath -Value "[$(Get-Date)] Installer completed within timeout."
@@ -214,8 +238,18 @@ if ($proc | Wait-Process -Timeout 300) {
 }
 
 try {
+    Add-Content -Path $LogPath -Value "[$(Get-Date)] Installer exited with code: $($proc.ExitCode)"
+} catch {
+    Add-Content -Path $LogPath -Value "[$(Get-Date)] Could not retrieve installer exit code: $($_.Exception.Message)"
+}
+
+try {
     Remove-Item $TempFile -Force
     Add-Content -Path $LogPath -Value "[$(Get-Date)] Temp file removed."
 } catch {
     Add-Content -Path $LogPath -Value "[$(Get-Date)] Failed to remove temp file: $($_.Exception.Message)"
 }
+
+Add-Content -Path $LogPath -Value "[$(Get-Date)] Update complete: $CurrentVersion -> $LatestVersion"
+
+exit 0
