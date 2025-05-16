@@ -50,6 +50,14 @@ if ($args -contains "/Uninstall") {
     exit
 }
 
+# === HANDLE /Reset ===
+if ($args -contains "/Reset") {
+    Remove-Item "$PSScriptRoot\wows_config.json" -Force -ErrorAction SilentlyContinue
+    Write-Host "Reset: Configuration file deleted."
+}
+
+$Debug = $args -contains "/Debug"
+
 function Select-Folder($description) {
     $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
     $dialog.Description = $description
@@ -109,6 +117,7 @@ if (-not $TaskAlreadyCreated) {
 
     $VbsPath = Join-Path $WoWSPath "MattsInvisibleLauncher.vbs"
     $psCmd = "powershell.exe -ExecutionPolicy Bypass -File `"$ScriptName`""
+    if ($Debug) { $psCmd += " /Debug" }
     $VbsContent = @"
 Set objShell = CreateObject("Wscript.Shell")
 objShell.Run "$psCmd", 0, False
@@ -135,8 +144,10 @@ objShell.Run "$psCmd", 0, False
         Remove-Item $TempConfigPath -Force
     }
 
-    Start-Sleep -Seconds 1
-    Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force
+    if (-not $Debug) {
+        Start-Sleep -Seconds 1
+        Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force
+    }
     exit
 }
 
