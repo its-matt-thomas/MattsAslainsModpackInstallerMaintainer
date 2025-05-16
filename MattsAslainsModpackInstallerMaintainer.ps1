@@ -43,7 +43,7 @@ if ($args -contains "/Uninstall") {
             Remove-Item $WorkingDir -Force
             Write-Host "Removed $WorkingDir and all contents."
         } catch {
-            Write-Warning "Failed to clean up $WorkingDir: $_"
+            Write-Warning "Failed to clean up $WorkingDir: $($_.Exception.Message)"
         }
     }
 
