@@ -25,7 +25,7 @@ if ($args -contains "/Uninstall") {
                 Remove-Item $fullPath -Force -ErrorAction Stop
                 Write-Host "Deleted $file"
             } catch {
-                Write-Warning ("Failed to clean up {0}: {1}" -f $WorkingDir, $_.Exception.Message)
+                Write-Warning ("Failed to delete {0}: {1}" -f $file, $_.Exception.Message)
             }
         }
     }
@@ -43,7 +43,7 @@ if ($args -contains "/Uninstall") {
             Remove-Item $WorkingDir -Force
             Write-Host "Removed $WorkingDir and all contents."
         } catch {
-            Write-Warning "Failed to clean up $WorkingDir: $($_.Exception.Message)"
+            Write-Warning ("Failed to clean up {0}: {1}" -f $WorkingDir, $_.Exception.Message)
         }
     }
 
@@ -111,7 +111,7 @@ if (-not $TaskAlreadyCreated) {
     $psCmd = "powershell.exe -ExecutionPolicy Bypass -File `"$ScriptName`""
     $VbsContent = @"
 Set objShell = CreateObject("Wscript.Shell")
-objShell.Run ""$psCmd"", 0, False
+objShell.Run "$psCmd", 0, False
 "@
     Set-Content -Path $VbsPath -Value $VbsContent -Encoding ASCII
 
