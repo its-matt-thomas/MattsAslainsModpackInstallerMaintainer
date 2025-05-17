@@ -112,7 +112,8 @@ if (-not $TaskAlreadyCreated) {
     }
 
     $taskName = "Matt's 'Aslain's Modpack Installer' Maintainer"
-    $cmd = "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$TargetPath`""
+    $escapedPath = '"' + $TargetPath + '"'
+    $cmd = "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File $escapedPath"
     $triggerArgs = $trigger -split ' '
     $taskCreate = schtasks /Create /F /TN "$taskName" /TR "$cmd" @triggerArgs /RL HIGHEST /RU SYSTEM /NP 2>&1
     if ($LASTEXITCODE -eq 0) {
