@@ -88,6 +88,13 @@ if (-not $WoWSPath) {
 $ConfigPath = Join-Path $WoWSPath "wows_config.json"
 $TargetPath = Join-Path $WoWSPath $ScriptName
 
+# Exit early if World of Warships is currently running
+if (Get-Process -Name "WorldOfWarships64" -ErrorAction SilentlyContinue) {
+    $logPath = Join-Path $GameDir "MattsAslainsModpackInstallerMaintainer.log"
+    "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] Game running (WorldOfWarships64.exe), skipping update." | Out-File -FilePath $logPath -Append -Encoding utf8
+    exit
+}
+
 if (-not $TaskAlreadyCreated) {
     if ($MyInvocation.MyCommand.Path -ne $TargetPath) {
         Copy-Item -Path $MyInvocation.MyCommand.Path -Destination $TargetPath -Force
@@ -159,8 +166,8 @@ try {
     exit 1
 }
 
-if ($WebContent -match 'href=\"(https://dl\.aslain\.com/Aslains_WoWs_Modpack_Installer_v\.(\d+\.\d+\.\d+_\d+)\.exe)\".*?>main download link<') {
-    $DownloadUrl = $Matches[1]
+if ($WebContent -match 'href=\"(https://dl\\.aslain\\.com/Aslains_WoWs_Modpack_Installer_v\\.(\\d+\\.\\d+\\.\\d+_\\d+)\\.exe)\".*?>main download link<') {
+    $DownloadUrl = [System.Uri]::EscapeUriString($Matches[1])
     $LatestVersion = $Matches[2]
 } else {
     Add-Content -Path $LogPath -Value "[$(Get-Date)] Could not find download link."
@@ -182,8 +189,13 @@ if ($CurrentVersion -eq $LatestVersion) {
 try {
     $wc.DownloadFile($DownloadUrl, $TempFile)
 } catch {
-    Add-Content -Path $LogPath -Value "[$(Get-Date)] Failed to download installer (WebClient): $($_.Exception.Message)"
-    exit 1
+    Add-Content -Path $LogPath -Value "[$(Get-Date)] WebClient failed. Attempting curl fallback..."
+    try {
+        & curl.exe -L -o $TempFile $DownloadUrl
+    } catch {
+        Add-Content -Path $LogPath -Value "[$(Get-Date)] curl fallback also failed: $($_.Exception.Message)"
+        exit 1
+    }
 }
 
 $ActualHash = Get-FileHash $TempFile -Algorithm SHA256 | Select-Object -ExpandProperty Hash
@@ -197,7 +209,7 @@ Add-Content -Path $LogPath -Value "[$(Get-Date)] Starting installer..."
 
 try {
     $proc = Start-Process -FilePath $TempFile `
-        -ArgumentList "/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR=`"$WoWSPath`"" `
+        -ArgumentList "/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR=`\"$WoWSPath`\"" `
         -PassThru
 } catch {
     Add-Content -Path $LogPath -Value "[$(Get-Date)] Failed to start installer: $($_.Exception.Message)"
