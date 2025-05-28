@@ -166,7 +166,8 @@ try {
     exit 1
 }
 
-if ($WebContent -match 'href=\"(https://dl\\.aslain\\.com/Aslains_WoWs_Modpack_Installer_v\\.(\\d+\\.\\d+\\.\\d+_\\d+)\\.exe)\".*?>main download link<') {
+# ✅ Fixed regex pattern for new HTML format
+if ($WebContent -match 'href="(https://dl\.aslain\.com/Aslains_WoWs_Modpack_Installer_v\.(\d+\.\d+\.\d+_\d+)\.exe)"') {
     $DownloadUrl = [System.Uri]::EscapeUriString($Matches[1])
     $LatestVersion = $Matches[2]
 } else {
