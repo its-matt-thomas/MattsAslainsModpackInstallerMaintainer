@@ -209,9 +209,16 @@ if ($ActualHash.ToLower() -ne $ExpectedHash) {
 Add-Content -Path $LogPath -Value "[$(Get-Date)] Starting installer..."
 
 try {
-    $proc = Start-Process -FilePath $TempFile `
-        -ArgumentList "/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR=`\"$WoWSPath`\"" `
-        -PassThru
+$installerArgs = @(
+    "/SP-"
+    "/VERYSILENT"
+    "/SUPPRESSMSGBOXES"
+    "/NORESTART"
+    "/DIR=`"$WoWSPath`""
+)
+
+$proc = Start-Process -FilePath $TempFile -ArgumentList $installerArgs -PassThru
+
 } catch {
     Add-Content -Path $LogPath -Value "[$(Get-Date)] Failed to start installer: $($_.Exception.Message)"
     Remove-Item $TempFile -Force
